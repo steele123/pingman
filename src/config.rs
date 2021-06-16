@@ -28,15 +28,20 @@ impl Config {
             let mut file = File::create("./ExampleConfig.toml").await?;
 
             let default_toml = toml::toml! {
-                site = "google.com"
-
                 pings = 10
+                site = "https://steele.gg"
 
                 [[proxies]]
                 ip = "127.0.0.1"
+                password = "password"
                 port = 8080
-                username = "wicked123"
-                password = "okaychamp"
+                username = "username"
+
+                [[proxies]]
+                ip = "127.0.0.1"
+                password = "password"
+                port = 8080
+                username = "username"
             };
 
             file.write_all(default_toml.to_string().as_bytes()).await?;
