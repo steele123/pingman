@@ -1,0 +1,2 @@
+# Proxy Pinger
+This is a tool built in rust with tokio that runs each proxy in parallel, each proxy runs inside an async task that will ping as many times as specified and find an average ms for those pings. You can specify a custom amount of pings or a custom website to ping.
