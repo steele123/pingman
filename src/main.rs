@@ -27,14 +27,14 @@ async fn main() -> anyhow::Result<()> {
 
                 let failed = &lock.failed;
 
-                println!("Ping Results for {}", &proxy.site);
+                println!("Sending {} pings to {}\n", proxy.pings, &proxy.site);
 
                 println!("Proxies Succeeded - {}", succeeded.len());
 
                 println!("Proxies Failed - {}", failed.len());
 
                 for result in succeeded {
-                    println!("{} - {} ms", result.ip, result.ping);
+                    println!("Results for {} - Average = {}ms", result.ip, result.ping);
                 }
 
                 if let Some(path) = proxy.output {
