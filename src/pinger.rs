@@ -30,7 +30,7 @@ impl Pinger {
     }
 
     pub async fn ping_vec(&self, proxies: Vec<Proxy>) -> Result<Arc<Mutex<TestResults>>> {
-        let results = Arc::new(Mutex::new(TestResults::new()));
+        let results = Arc::new(Mutex::new(TestResults::new(self.url.clone())));
 
         let mut handles = Vec::new();
 
@@ -48,11 +48,17 @@ impl Pinger {
 
                 match ping(&proxy, &url, pings).await {
                     Ok(ping) => {
-                        results.lock().await.add_success(&proxy_url, ping);
+                        results
+                            .lock()
+                            .await
+                            .add_success(&proxy.ip, proxy.port, ping);
                     }
                     Err(e) => {
                         println!("{}", e);
-                        results.lock().await.add_failure(&proxy_url);
+                        results
+                            .lock()
+                            .await
+                            .add_failure(&proxy.ip, proxy.port, e.to_string());
                     }
                 };
             }));
