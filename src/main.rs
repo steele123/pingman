@@ -98,7 +98,9 @@ async fn main() -> anyhow::Result<()> {
                 sum / ping.pings
             )
         }
-        _ => {}
+        _ => {
+            unreachable!()
+        }
     }
 
     Ok(())

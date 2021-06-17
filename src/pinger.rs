@@ -1,5 +1,5 @@
 use crate::test_results::TestResults;
-use anyhow::{Error, Result};
+use anyhow::Result;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tokio::time::Instant;
