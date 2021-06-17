@@ -9,11 +9,36 @@ mod test_results;
 async fn main() -> anyhow::Result<()> {
     let matches = App::new("pingman")
         .version(crate_version!())
-        .author("Steele Scott")
-        .about("A cli for pinging and testing proxies at very fast speeds in concurrency.")
+        .author("github.com/steele123")
+        .about("A cli for http pinging with support for proxies at very fast speeds in concurrency.")
+        .subcommand(
+            App::new("ping")
+                .about("pings a site through http")
+                .arg(
+                    Arg::new("site")
+                        .short('s')
+                        .required(true)
+                        .about("the site that should get pinged")
+                        .value_name("URL")
+                        .takes_value(true)
+                )
+                .arg(
+                    Arg::new("pings")
+                        .short('p')
+                        .default_value("10")
+                        .about("the amount of requests that should be sent per site")
+                        .value_name("PINGS")
+                        .takes_value(true)
+                )
+                .arg(
+                    Arg::new("get")
+                        .short('g')
+                        .about("whether pingman should send a get request or a head request, head requests are faster")
+                )
+        )
         .subcommand(
             App::new("proxy")
-                .about("Pings a site with a proxy")
+                .about("pings a site with a proxy")
                 .arg(
                     Arg::new("site")
                         .short('s')
@@ -31,18 +56,32 @@ async fn main() -> anyhow::Result<()> {
                         .takes_value(true),
                 )
                 .arg(
+                    // TODO
                     Arg::new("format")
                         .about("the format to parse the proxies from the file")
                         .value_name("FORMAT")
                         .takes_value(true),
                 )
                 .arg(
+                    // TODO
                     Arg::new("proxy")
                         .about("a proxy formatted as ip:port or ip:port:username:password")
                         .value_name("PROXY")
                         .takes_value(true),
                 )
-                .arg(Arg::new(""))
+                .arg(
+                    Arg::new("output")
+                        .short('o')
+                        .about("the path to a location on your computer to save the proxies results to in json format")
+                        .value_name("PATH")
+                        .takes_value(true),
+                )
+                .arg(
+                    // TODO
+                    Arg::new("get")
+                        .short('g')
+                        .about("this will make the requests get requests instead of head requests, this should be slower but not all sites support head requests")
+                )
                 .arg(
                     Arg::new("pings")
                         .short('p')
@@ -61,7 +100,7 @@ async fn main() -> anyhow::Result<()> {
                 .unwrap_or("https://google.com");
             let pings: i32 = proxy_matches.value_of("pings").unwrap_or("10").parse()?;
 
-            let pinger = pinger::Pinger::new(pings, "https://amazon.com");
+            let pinger = pinger::Pinger::new(pings, site);
 
             if let Some(path) = proxy_matches.value_of("file") {
                 let reader = proxy_reader::ProxyReader::new();
@@ -85,9 +124,67 @@ async fn main() -> anyhow::Result<()> {
                 for result in succeeded {
                     println!("{} - {} ms", result.ip, result.ping);
                 }
+
+                if let Some(path) = proxy_matches.value_of("output") {
+                    let deref_lock = &**lock;
+
+                    let json = serde_json::to_string_pretty(&deref_lock)?;
+
+                    tokio::fs::write(path, json).await?;
+                }
             }
         }
-        Some(("ping", ping_matches)) => {}
+        Some(("ping", ping_matches)) => {
+            let site = ping_matches.value_of("site").unwrap();
+            let pings: i32 = ping_matches.value_of("pings").unwrap().parse()?;
+
+            let client = reqwest::Client::new();
+
+            let mut sum: i32 = 0;
+            let mut highest: i32 = 0;
+            let mut lowest: i32 = 0;
+
+            println!("Sending {} pings to {}\n", pings, site);
+
+            for i in 0..=pings {
+                let client = client.clone();
+
+                if i == 0 {
+                    client.head(site).send().await.unwrap();
+                    continue;
+                }
+
+                let instant = Instant::now();
+
+                let resp = client.head(site).send().await.unwrap();
+
+                let elapsed = instant.elapsed().as_millis() as i32;
+
+                if elapsed < lowest || lowest == 0 {
+                    lowest = elapsed;
+                } else if elapsed > highest {
+                    highest = elapsed;
+                }
+
+                println!(
+                    "[Ping {}] Received Code {}: bytes={} time={}ms",
+                    i,
+                    resp.status(),
+                    resp.bytes().await.unwrap().len(),
+                    elapsed,
+                );
+
+                sum += elapsed;
+            }
+
+            println!(
+                "\nPings stats for {}\nFastest = {} Slowest = {} Average = {}ms",
+                site,
+                lowest,
+                highest,
+                sum / pings
+            )
+        }
         _ => {}
     }
 

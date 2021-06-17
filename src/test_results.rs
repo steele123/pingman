@@ -1,13 +1,18 @@
+use serde::Serialize;
+
+#[derive(Serialize)]
 pub struct TestResults {
     pub failed: Vec<FailedTest>,
     pub succeeded: Vec<SucceededTest>,
 }
 
+#[derive(Serialize)]
 pub struct SucceededTest {
     pub ping: i32,
     pub ip: String,
 }
 
+#[derive(Serialize)]
 pub struct FailedTest {
     pub ip: String,
 }

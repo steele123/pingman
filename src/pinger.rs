@@ -76,7 +76,7 @@ pub async fn ping(proxy: &Proxy, url: &String, pings: i32) -> Result<i32> {
 
     let mut sum: i32 = 0;
 
-    for i in 1..=pings {
+    for i in 0..=pings {
         let instant = Instant::now();
 
         match client.head(url).send().await {
