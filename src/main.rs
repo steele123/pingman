@@ -1,5 +1,5 @@
 use crate::cli::{Opt, Subcommand};
-use clap::{crate_version, App, Arg, ArgMatches, Clap};
+use clap::Clap;
 use reqwest::Method;
 use tokio::time::Instant;
 

@@ -39,12 +39,10 @@ pub struct Proxy {
     pub file: Option<String>,
     // TODO
     /// the format to parse proxies from the specified file
-    #[clap(required(false))]
-    pub format: String,
+    pub format: Option<String>,
     // TODO
     /// a proxy formatted by default as ip:port ip:port:username:password
-    #[clap(required(false))]
-    pub proxy: String,
+    pub proxy: Option<String>,
     /// the path to a location on your computer to save the test results in json format
     #[clap(short)]
     pub output: Option<String>,
