@@ -1,4 +1,5 @@
 use clap::{crate_version, App, Arg, ArgMatches};
+use tokio::time::Instant;
 
 mod pinger;
 mod proxy_reader;
@@ -59,7 +60,7 @@ async fn main() -> anyhow::Result<()> {
                 .unwrap_or("https://google.com");
             let pings: i32 = proxy_matches.value_of("pings").unwrap_or("10").parse()?;
 
-            let pinger = pinger::Pinger::new(pings, site);
+            let pinger = pinger::Pinger::new(pings, "https://amazon.com");
 
             if let Some(path) = proxy_matches.value_of("file") {
                 let reader = proxy_reader::ProxyReader::new();

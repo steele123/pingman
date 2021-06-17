@@ -1,2 +1,4 @@
-# Proxy Pinger
-This is a tool built in rust with tokio that runs each proxy in parallel, each proxy runs inside an async task that will ping as many times as specified and find an average ms for those pings. You can specify a custom amount of pings or a custom website to ping.
+# pingman
+Pingman is a very fast pinger with an extremely verbose cli interface with very many options we support pinging an absurd amount of proxies or a bunch of websites.
+
+Pingman uses the tokio runtime for its amazing tasks to run all the requests in parallel, so they have no delay between each of them.

@@ -9,6 +9,7 @@ pub struct Pinger {
     url: String,
 }
 
+#[derive(Debug)]
 pub struct Proxy {
     pub ip: String,
     pub port: i32,
@@ -43,12 +44,15 @@ impl Pinger {
             let url = url.clone();
 
             handles.push(tokio::task::spawn(async move {
+                let proxy_url = format!("{}:{}", proxy.ip, proxy.port);
+
                 match ping(&proxy, &url, pings).await {
                     Ok(ping) => {
-                        results.lock().await.add_success(&url, ping);
+                        results.lock().await.add_success(&proxy_url, ping);
                     }
-                    Err(_) => {
-                        results.lock().await.add_failure(&url);
+                    Err(e) => {
+                        println!("{}", e);
+                        results.lock().await.add_failure(&proxy_url);
                     }
                 };
             }));
@@ -61,10 +65,12 @@ impl Pinger {
 }
 
 pub async fn ping(proxy: &Proxy, url: &String, pings: i32) -> Result<i32> {
-    let req_proxy = reqwest::Proxy::all(url).unwrap().basic_auth(
-        &proxy.username.as_ref().unwrap(),
-        &proxy.password.as_ref().unwrap(),
-    );
+    let req_proxy = reqwest::Proxy::all(format!("{}:{}", proxy.ip, proxy.port))
+        .unwrap()
+        .basic_auth(
+            &proxy.username.as_ref().unwrap(),
+            &proxy.password.as_ref().unwrap(),
+        );
 
     let client = reqwest::Client::builder().proxy(req_proxy).build().unwrap();
 
@@ -76,7 +82,9 @@ pub async fn ping(proxy: &Proxy, url: &String, pings: i32) -> Result<i32> {
         match client.head(url).send().await {
             Ok(_) => {
                 if i != 1 {
-                    sum += instant.elapsed().as_millis() as i32;
+                    let elapsed = instant.elapsed().as_millis() as i32;
+
+                    sum += elapsed;
                 }
             }
             Err(e) => {
@@ -88,5 +96,5 @@ pub async fn ping(proxy: &Proxy, url: &String, pings: i32) -> Result<i32> {
         };
     }
 
-    Ok(sum)
+    Ok(sum / pings)
 }
