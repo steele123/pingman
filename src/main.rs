@@ -42,6 +42,7 @@ async fn main() -> anyhow::Result<()> {
                         .value_name("PROXY")
                         .takes_value(true),
                 )
+                .arg(Arg::new(""))
                 .arg(
                     Arg::new("pings")
                         .short('p')
@@ -74,6 +75,8 @@ async fn main() -> anyhow::Result<()> {
                 let succeeded = &lock.succeeded;
 
                 let failed = &lock.failed;
+
+                println!("Ping Results for {}", &site);
 
                 println!("Proxies Succeeded - {}", succeeded.len());
 
