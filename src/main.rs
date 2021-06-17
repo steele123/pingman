@@ -1,4 +1,5 @@
 use clap::{crate_version, App, Arg, ArgMatches};
+use reqwest::Method;
 use tokio::time::Instant;
 
 mod pinger;
@@ -144,10 +145,18 @@ async fn main() -> anyhow::Result<()> {
             let mut highest: i32 = 0;
             let mut lowest: i32 = 0;
 
+            let mut method = Method::HEAD;
+
+            if ping_matches.is_present("get") {
+                method = Method::GET;
+            }
+
             println!("Sending {} pings to {}\n", pings, site);
 
             for i in 0..=pings {
                 let client = client.clone();
+
+                let method = method.clone();
 
                 if i == 0 {
                     client.head(site).send().await.unwrap();
@@ -156,7 +165,7 @@ async fn main() -> anyhow::Result<()> {
 
                 let instant = Instant::now();
 
-                let resp = client.head(site).send().await.unwrap();
+                let resp = client.request(method, site).send().await.unwrap();
 
                 let elapsed = instant.elapsed().as_millis() as i32;
 
