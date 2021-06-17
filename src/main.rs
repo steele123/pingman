@@ -1,146 +1,91 @@
-use crate::config::{Config, Proxy};
-use crate::test_results::TestResults;
-use anyhow::{anyhow, Result};
-use futures::future::join_all;
-use std::sync::Arc;
-use tokio::fs::File;
-use tokio::io::{AsyncBufReadExt, BufReader};
-use tokio::sync::Mutex;
-use tokio::time::{sleep, Duration, Instant};
+use clap::{crate_version, App, Arg, ArgMatches};
 
-mod config;
+mod pinger;
+mod proxy_reader;
 mod test_results;
 
 #[tokio::main]
-async fn main() -> Result<()> {
-    let mut config: Config = if let Ok(config) = config::Config::load().await {
-        config
-    } else {
-        println!("You did not provide a config file, a example config file has been provided to you please rename it to Config.toml\n when you have made the changes you wanted to it.");
-        sleep(Duration::from_secs(10)).await;
-        return Err(anyhow::anyhow!("No config found."));
-    };
+async fn main() -> anyhow::Result<()> {
+    let matches = App::new("pingman")
+        .version(crate_version!())
+        .author("Steele Scott")
+        .about("A cli for pinging and testing proxies at very fast speeds in concurrency.")
+        .subcommand(
+            App::new("proxy")
+                .about("Pings a site with a proxy")
+                .arg(
+                    Arg::new("site")
+                        .short('s')
+                        .about("the site that should get pinged")
+                        .long("site")
+                        .default_value("https://google.com")
+                        .value_name("URL")
+                        .takes_value(true),
+                )
+                .arg(
+                    Arg::new("file")
+                        .short('f')
+                        .about("file with proxies in them")
+                        .value_name("PATH")
+                        .takes_value(true),
+                )
+                .arg(
+                    Arg::new("format")
+                        .about("the format to parse the proxies from the file")
+                        .value_name("FORMAT")
+                        .takes_value(true),
+                )
+                .arg(
+                    Arg::new("proxy")
+                        .about("a proxy formatted as ip:port or ip:port:username:password")
+                        .value_name("PROXY")
+                        .takes_value(true),
+                )
+                .arg(
+                    Arg::new("pings")
+                        .short('p')
+                        .default_value("10")
+                        .about("amount of requests that each proxy should do")
+                        .value_name("Pings")
+                        .takes_value(true),
+                ),
+        )
+        .get_matches();
 
-    if std::path::Path::new("./proxies.txt").exists() {
-        println!("Loading proxies from proxies.txt");
+    match matches.subcommand() {
+        Some(("proxy", proxy_matches)) => {
+            let site = proxy_matches
+                .value_of("site")
+                .unwrap_or("https://google.com");
+            let pings: i32 = proxy_matches.value_of("pings").unwrap_or("10").parse()?;
 
-        let file = File::open("./proxies.txt").await?;
-        let reader = BufReader::new(file);
+            let pinger = pinger::Pinger::new(pings, site);
 
-        let mut lines = reader.lines();
+            if let Some(path) = proxy_matches.value_of("file") {
+                let reader = proxy_reader::ProxyReader::new();
 
-        loop {
-            let line = lines.next_line().await?;
+                let proxies = reader.read(path).await?;
 
-            if line.is_none() {
-                break;
-            }
+                let results = pinger.ping_vec(proxies).await?;
 
-            let line = line.unwrap();
+                let lock = &results.lock().await;
 
-            let split = line.split(':');
-            let data: Vec<&str> = split.collect();
+                let succeeded = &lock.succeeded;
 
-            if data.is_empty() {
-                continue;
-            }
+                let failed = &lock.failed;
 
-            let proxy = Proxy {
-                ip: data[0].to_string(),
-                port: data[1].parse()?,
-                username: Some(data[2].to_string()),
-                password: Some(data[3].to_string()),
-            };
+                println!("Proxies Succeeded - {}", succeeded.len());
 
-            config.proxies.push(proxy);
-        }
-    }
+                println!("Proxies Failed - {}", failed.len());
 
-    println!("Loaded {} proxies from config!", config.proxies.len());
-
-    match reqwest::Client::new().head(&config.site).send().await {
-        Ok(_) => {}
-        Err(e) => {
-            if e.is_connect() {
-                let message = format!("Couldn't connect to {}", &config.site);
-
-                println!("{}", message);
-
-                sleep(Duration::from_secs(5)).await;
-
-                return Err(anyhow!(message));
-            }
-        }
-    };
-
-    let results = Arc::new(Mutex::new(TestResults::new()));
-
-    {
-        // We add one because the first request initializes most of the request stuff
-        let pings = config.pings.unwrap_or(10) + 1;
-
-        let mut handles = Vec::new();
-
-        let site = config.site.clone();
-
-        for proxy in config.proxies {
-            let url = format!("{}:{}", proxy.ip, proxy.port);
-
-            let url_clone = url.clone();
-
-            let results_clone = results.clone();
-
-            let site = site.clone();
-
-            let handle = tokio::task::spawn(async move {
-                let req_proxy = reqwest::Proxy::all(&url_clone)
-                    .unwrap()
-                    .basic_auth(&proxy.username.unwrap(), &proxy.password.unwrap());
-
-                let client = reqwest::Client::builder().proxy(req_proxy).build().unwrap();
-
-                let mut sum: i32 = 0;
-
-                for i in 1..=pings {
-                    let instant = Instant::now();
-
-                    match client.head(site.clone()).send().await {
-                        Ok(_) => {
-                            if i != 1 {
-                                sum += instant.elapsed().as_millis() as i32;
-                            }
-                        }
-                        Err(e) => {
-                            if e.is_connect() {
-                                // proxy invalid or site not up
-                                println!("Proxy failed to connect...");
-                                break;
-                            }
-                        }
-                    };
+                for result in succeeded {
+                    println!("{} - {} ms", result.ip, result.ping);
                 }
-
-                if sum != 0 {
-                    results_clone.lock().await.add_success(&url, sum / pings);
-                } else {
-                    results_clone.lock().await.add_failure(&url);
-                }
-            });
-
-            handles.push(handle);
+            }
         }
-
-        join_all(handles).await;
+        Some(("ping", ping_matches)) => {}
+        _ => {}
     }
-
-    for result in &results.lock().await.succeeded {
-        println!("{} - {} ms", result.ip, result.ping);
-    }
-
-    println!(
-        "Results for {} proxies",
-        results.lock().await.succeeded.len()
-    );
 
     Ok(())
 }
