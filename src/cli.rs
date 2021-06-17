@@ -46,6 +46,7 @@ pub struct Proxy {
     /// the path to a location on your computer to save the test results in json format
     #[clap(short)]
     pub output: Option<String>,
+    // TODO
     /// whether or not pingman should use get requests instead of head requests, get requests are much slower but could be a more valid test for you
     #[clap(short)]
     pub get: bool,
