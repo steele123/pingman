@@ -4,7 +4,7 @@ Pingman is a very fast and concurrent http pinging cli. It supports proxies and 
 ## Installation
 There is 2 ways to install pingman, the first is compiling it yourself from source with cargo and the second is downloading from github releases.
 
-### Install with from source with `git` and `cargo`
+### Build from source with `git` and `cargo`
 ```bash
 git clone https://github.com/steele123/pingman.git
 cd pingman
