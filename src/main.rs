@@ -97,8 +97,9 @@ async fn main() -> anyhow::Result<()> {
                 }
 
                 println!(
-                    "[Ping {}] Code = {} Bytes = {} Time = {}ms",
+                    "[Ping {}] [{}] Code = {}, Bytes = {}, Time = {}ms",
                     i,
+                    status.canonical_reason().unwrap().blue(),
                     status_text,
                     resp.bytes().await.unwrap().len().bright_blue(),
                     elapsed.bright_yellow(),
@@ -115,7 +116,7 @@ async fn main() -> anyhow::Result<()> {
                 (sum / ping.pings).bright_blue()
             );
 
-            println!("      Pings = {} Method = {}", ping.pings.bright_yellow(), (if ping.get {  "GET" } else { "HEAD" }).bright_magenta())
+            println!("       Pings = {} Method = {}", ping.pings.bright_yellow(), (if ping.get {  "GET" } else { "HEAD" }).bright_magenta())
         }
         _ => {
             unreachable!()
