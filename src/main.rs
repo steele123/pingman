@@ -1,6 +1,7 @@
 use crate::cli::{Opt, Subcommand};
 use clap::Clap;
 use reqwest::Method;
+use owo_colors::OwoColorize;
 use tokio::time::Instant;
 
 mod cli;
@@ -85,12 +86,22 @@ async fn main() -> anyhow::Result<()> {
                     highest = elapsed;
                 }
 
+                let status = resp.status();
+
+                let mut status_text;
+
+                if status.is_success() {
+                    status_text = format!("{}", status.as_u16().bright_green())
+                } else {
+                    status_text = format!("{}", status.as_u16().bright_red())
+                }
+
                 println!(
-                    "[Ping {}] Received Code {}: bytes={} time={}ms",
+                    "[Ping {}] Code = {} Bytes = {} Time = {}ms",
                     i,
-                    resp.status(),
-                    resp.bytes().await.unwrap().len(),
-                    elapsed,
+                    status_text,
+                    resp.bytes().await.unwrap().len().bright_blue(),
+                    elapsed.bright_yellow(),
                 );
 
                 sum += elapsed;
@@ -98,11 +109,13 @@ async fn main() -> anyhow::Result<()> {
 
             println!(
                 "\nPings stats for {}\nFastest = {} Slowest = {} Average = {}ms",
-                ping.site,
-                lowest,
-                highest,
-                sum / ping.pings
-            )
+                ping.site.bright_cyan(),
+                lowest.bright_green(),
+                highest.bright_red(),
+                (sum / ping.pings).bright_blue()
+            );
+
+            println!("      Pings = {} Method = {}", ping.pings.bright_yellow(), (if ping.get {  "GET" } else { "HEAD" }).bright_magenta())
         }
         _ => {
             unreachable!()
